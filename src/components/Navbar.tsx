@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Wallet, Menu, X, CircleDot, Briefcase, ChevronDown, LogOut, Copy, ExternalLink, IndianRupee, ArrowRightLeft } from "lucide-react";
+import { Wallet, Menu, X, CircleDot, Briefcase, ChevronDown, LogOut, Copy, ExternalLink, IndianRupee, ArrowRightLeft, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useWallet } from "@/context/WalletContext";
 import { toast } from "sonner";
