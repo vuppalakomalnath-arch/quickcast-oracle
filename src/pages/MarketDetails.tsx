@@ -20,6 +20,8 @@ const MarketDetails = () => {
 
   const [yesPrice, setYesPrice] = useState(baseMarket?.yesPrice ?? 0.5);
   const [noPrice, setNoPrice] = useState(baseMarket?.noPrice ?? 0.5);
+  const [yesPool, setYesPool] = useState(baseMarket?.yesPool ?? 0);
+  const [noPool, setNoPool] = useState(baseMarket?.noPool ?? 0);
   const [volume, setVolume] = useState(baseMarket?.totalVolume ?? 0);
   const [stake, setStake] = useState("10");
   const [confirmation, setConfirmation] = useState<{ side: "YES" | "NO"; price: number } | null>(null);
