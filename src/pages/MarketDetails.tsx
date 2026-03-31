@@ -13,7 +13,7 @@ import { initialMarkets } from "@/data/mockData";
 import { useWallet } from "@/context/WalletContext";
 import { toast } from "sonner";
 
-const MarketDetails = () => {
+const { connected } = useWallet();
   const { id } = useParams<{ id: string }>();
   const baseMarket = initialMarkets.find(m => m.id === id);
 
