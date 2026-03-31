@@ -1,11 +1,15 @@
-import { createContext, useContext, useState, useCallback, ReactNode } from "react";
+import { createContext, useContext, useState, useCallback, useEffect, ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { usePeraWallet } from "@/hooks/usePeraWallet";
+import { useMarketContract, type PlaceBetResult } from "@/hooks/useMarketContract";
+import { getAccountBalance } from "@/algorand/client";
+import { ALGORAND_CONFIG } from "@/algorand/config";
 import { useUserBets, type DbBet } from "@/hooks/useSupabaseBets";
-import { useSupabaseBalance } from "@/hooks/useSupabaseBalance";
 import { toast } from "sonner";
 
 interface WalletState {
   connected: boolean;
+  connecting: boolean;
   address: string;
   algoBalance: number;
   inrBalance: number;
@@ -15,15 +19,10 @@ interface WalletState {
   bets: DbBet[];
   connect: () => Promise<void>;
   disconnect: () => void;
-  placeTrade: (marketId: string, side: "YES" | "NO", amount: number, price: number) => Promise<boolean>;
-  claimMarketReward: (marketId: string, outcome: "YES" | "NO", rewardAmount: number) => Promise<string>;
-  addFunds: (inrAmount: number) => Promise<boolean>;
-  withdrawFunds: (algoAmount: number) => Promise<boolean>;
+  placeTrade: (marketId: string, side: "YES" | "NO", amount: number, price: number) => Promise<PlaceBetResult | null>;
+  claimMarketReward: (marketId: string, outcome: "YES" | "NO", rewardAmount: number) => Promise<PlaceBetResult | null>;
   refetchBalance: () => Promise<void>;
 }
-
-const MOCK_INR_TO_ALGO = 0.0012; // 1 INR ≈ 0.0012 ALGO (mock)
-const MOCK_ALGO_TO_INR = 1 / MOCK_INR_TO_ALGO;
 
 const WalletContext = createContext<WalletState | null>(null);
 
@@ -33,193 +32,161 @@ export const useWallet = () => {
   return ctx;
 };
 
-function generateWalletAddress(): string {
-  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
-  let addr = "ALGO";
-  for (let i = 0; i < 54; i++) {
-    addr += chars[Math.floor(Math.random() * chars.length)];
-  }
-  return addr;
-}
-
 export const WalletProvider = ({ children }: { children: ReactNode }) => {
-  const [connected, setConnected] = useState(false);
-  const [address, setAddress] = useState("");
+  const pera = usePeraWallet();
+  const contract = useMarketContract();
+  const [algoBalance, setAlgoBalance] = useState(0);
+  const { bets, refetchBets } = useUserBets(pera.connected ? pera.address : null);
 
-  const { bets, refetchBets } = useUserBets(connected ? address : null);
-  const { balance, refetchBalance } = useSupabaseBalance(connected ? address : null);
+  // Fetch on-chain balance
+  const fetchBalance = useCallback(async () => {
+    if (!pera.address) {
+      setAlgoBalance(0);
+      return;
+    }
+    const bal = await getAccountBalance(pera.address);
+    setAlgoBalance(bal);
+  }, [pera.address]);
+
+  useEffect(() => {
+    fetchBalance();
+    // Poll balance every 10s when connected
+    if (!pera.connected) return;
+    const interval = setInterval(fetchBalance, 10_000);
+    return () => clearInterval(interval);
+  }, [pera.connected, fetchBalance]);
 
   const connect = useCallback(async () => {
-    // Check if we have a stored address in sessionStorage
-    let walletAddr = sessionStorage.getItem("qc_wallet_address");
-    if (!walletAddr) {
-      walletAddr = generateWalletAddress();
-      sessionStorage.setItem("qc_wallet_address", walletAddr);
+    const addr = await pera.connect();
+    if (addr) {
+      // Upsert profile in Supabase for leaderboard tracking
+      await supabase.from("profiles").upsert(
+        { wallet_address: addr },
+        { onConflict: "wallet_address" }
+      );
     }
-
-    // Upsert profile
-    await supabase.from("profiles").upsert(
-      { wallet_address: walletAddr },
-      { onConflict: "wallet_address" }
-    );
-
-    // Upsert demo balance (only inserts if not exists)
-    const { data: existingBal } = await supabase
-      .from("demo_balances")
-      .select("wallet_address")
-      .eq("wallet_address", walletAddr)
-      .single();
-
-    if (!existingBal) {
-      await supabase.from("demo_balances").insert({
-        wallet_address: walletAddr,
-        algo_balance: 1000,
-        inr_balance: 50000,
-      });
-    }
-
-    setAddress(walletAddr);
-    setConnected(true);
-  }, []);
+  }, [pera]);
 
   const disconnect = useCallback(() => {
-    setConnected(false);
-    setAddress("");
-  }, []);
+    pera.disconnect();
+    setAlgoBalance(0);
+  }, [pera]);
 
   const placeTrade = useCallback(async (
     marketId: string,
     side: "YES" | "NO",
     amount: number,
     price: number
-  ): Promise<boolean> => {
-    if (amount <= 0 || amount > balance.algo_balance) return false;
+  ): Promise<PlaceBetResult | null> => {
+    if (!pera.connected || !pera.address) return null;
 
-    // Insert bet
-    const { error: betError } = await supabase.from("bets").insert({
-      wallet_address: address,
-      market_id: marketId,
-      side,
-      amount,
-      price,
-    });
-    if (betError) {
-      console.error("Bet insert error:", betError);
-      return false;
+    try {
+      // Sign & send on-chain transaction via Pera Wallet
+      const result = await contract.placeBet(
+        pera.address,
+        marketId,
+        side,
+        amount,
+        pera.signTransactions
+      );
+
+      // Record bet in Supabase for indexing / leaderboard
+      await supabase.from("bets").insert({
+        wallet_address: pera.address,
+        market_id: marketId,
+        side,
+        amount,
+        price,
+      });
+
+      // Update market pools in Supabase
+      const delta = 0.02;
+      const { data: market } = await supabase.from("markets").select("*").eq("id", marketId).single();
+      if (market) {
+        const newYesPrice = side === "YES"
+          ? Math.min(0.90, parseFloat((Number(market.yes_price) + delta).toFixed(2)))
+          : Math.max(0.10, parseFloat((Number(market.yes_price) - delta).toFixed(2)));
+        const newNoPrice = side === "NO"
+          ? Math.min(0.90, parseFloat((Number(market.no_price) + delta).toFixed(2)))
+          : Math.max(0.10, parseFloat((Number(market.no_price) - delta).toFixed(2)));
+
+        await supabase.from("markets").update({
+          yes_price: newYesPrice,
+          no_price: newNoPrice,
+          yes_pool: side === "YES" ? Number(market.yes_pool) + amount : Number(market.yes_pool),
+          no_pool: side === "NO" ? Number(market.no_pool) + amount : Number(market.no_pool),
+          total_volume: Number(market.total_volume) + amount * 100,
+        }).eq("id", marketId);
+      }
+
+      await fetchBalance();
+      await refetchBets();
+      return result;
+    } catch (err: any) {
+      console.error("Trade failed:", err);
+      toast.error("Transaction rejected or failed", {
+        description: err?.message || "Please try again",
+      });
+      return null;
     }
-
-    // Update balance
-    const newAlgo = parseFloat((balance.algo_balance - amount).toFixed(2));
-    await supabase
-      .from("demo_balances")
-      .update({ algo_balance: newAlgo })
-      .eq("wallet_address", address);
-
-    // Update market pools and prices
-    const delta = 0.02;
-    const { data: market } = await supabase.from("markets").select("*").eq("id", marketId).single();
-    if (market) {
-      const newYesPrice = side === "YES"
-        ? Math.min(0.90, parseFloat((Number(market.yes_price) + delta).toFixed(2)))
-        : Math.max(0.10, parseFloat((Number(market.yes_price) - delta).toFixed(2)));
-      const newNoPrice = side === "NO"
-        ? Math.min(0.90, parseFloat((Number(market.no_price) + delta).toFixed(2)))
-        : Math.max(0.10, parseFloat((Number(market.no_price) - delta).toFixed(2)));
-      const newYesPool = side === "YES" ? Number(market.yes_pool) + amount : Number(market.yes_pool);
-      const newNoPool = side === "NO" ? Number(market.no_pool) + amount : Number(market.no_pool);
-      const newVolume = Number(market.total_volume) + amount * 100;
-
-      await supabase.from("markets").update({
-        yes_price: newYesPrice,
-        no_price: newNoPrice,
-        yes_pool: newYesPool,
-        no_pool: newNoPool,
-        total_volume: newVolume,
-      }).eq("id", marketId);
-    }
-
-    await refetchBalance();
-    await refetchBets();
-    return true;
-  }, [address, balance.algo_balance, refetchBalance, refetchBets]);
+  }, [pera, contract, fetchBalance, refetchBets]);
 
   const claimMarketReward = useCallback(async (
     marketId: string,
     outcome: "YES" | "NO",
     rewardAmount: number
-  ): Promise<string> => {
-    const txHash = "TXID" + Math.random().toString(36).substring(2, 10).toUpperCase() + "...ALGO";
+  ): Promise<PlaceBetResult | null> => {
+    if (!pera.connected || !pera.address) return null;
 
-    // Insert claim
-    await supabase.from("claims").insert({
-      wallet_address: address,
-      market_id: marketId,
-      reward_amount: rewardAmount,
-      tx_hash: txHash,
-    });
+    try {
+      const result = await contract.claimReward(
+        pera.address,
+        marketId,
+        pera.signTransactions
+      );
 
-    // Mark bets as claimed
-    await supabase
-      .from("bets")
-      .update({ claimed: true })
-      .eq("wallet_address", address)
-      .eq("market_id", marketId)
-      .eq("side", outcome)
-      .eq("claimed", false);
+      // Record claim in Supabase
+      await supabase.from("claims").insert({
+        wallet_address: pera.address,
+        market_id: marketId,
+        reward_amount: rewardAmount,
+        tx_hash: result.txId,
+      });
 
-    // Add reward to balance
-    const newAlgo = parseFloat((balance.algo_balance + rewardAmount).toFixed(2));
-    await supabase
-      .from("demo_balances")
-      .update({ algo_balance: newAlgo })
-      .eq("wallet_address", address);
+      // Mark bets as claimed
+      await supabase
+        .from("bets")
+        .update({ claimed: true })
+        .eq("wallet_address", pera.address)
+        .eq("market_id", marketId)
+        .eq("side", outcome)
+        .eq("claimed", false);
 
-    await refetchBalance();
-    await refetchBets();
-    return txHash;
-  }, [address, balance.algo_balance, refetchBalance, refetchBets]);
+      await fetchBalance();
+      await refetchBets();
+      return result;
+    } catch (err: any) {
+      console.error("Claim failed:", err);
+      toast.error("Claim transaction failed", {
+        description: err?.message || "Please try again",
+      });
+      return null;
+    }
+  }, [pera, contract, fetchBalance, refetchBets]);
 
-  const addFunds = useCallback(async (inrAmount: number): Promise<boolean> => {
-    if (inrAmount <= 0 || inrAmount > balance.inr_balance) return false;
-    const algoToAdd = parseFloat((inrAmount * MOCK_INR_TO_ALGO).toFixed(4));
-    const newAlgo = parseFloat((balance.algo_balance + algoToAdd).toFixed(4));
-    const newInr = parseFloat((balance.inr_balance - inrAmount).toFixed(2));
-
-    await supabase.from("demo_balances").update({
-      algo_balance: newAlgo,
-      inr_balance: newInr,
-    }).eq("wallet_address", address);
-
-    await refetchBalance();
-    return true;
-  }, [address, balance, refetchBalance]);
-
-  const withdrawFunds = useCallback(async (algoAmount: number): Promise<boolean> => {
-    if (algoAmount <= 0 || algoAmount > balance.algo_balance) return false;
-    const inrToAdd = parseFloat((algoAmount * MOCK_ALGO_TO_INR).toFixed(2));
-    const newAlgo = parseFloat((balance.algo_balance - algoAmount).toFixed(4));
-    const newInr = parseFloat((balance.inr_balance + inrToAdd).toFixed(2));
-
-    await supabase.from("demo_balances").update({
-      algo_balance: newAlgo,
-      inr_balance: newInr,
-    }).eq("wallet_address", address);
-
-    await refetchBalance();
-    return true;
-  }, [address, balance, refetchBalance]);
-
+  const inrBalance = parseFloat((algoBalance * ALGORAND_CONFIG.ALGO_TO_INR).toFixed(2));
   const openPositions = bets.filter((b) => !b.claimed).length;
   const activeStake = bets.filter((b) => !b.claimed).reduce((s, b) => s + b.amount, 0);
-  const portfolioValue = parseFloat((balance.algo_balance + activeStake).toFixed(2));
+  const portfolioValue = parseFloat((algoBalance + activeStake).toFixed(2));
 
   return (
     <WalletContext.Provider
       value={{
-        connected,
-        address,
-        algoBalance: balance.algo_balance,
-        inrBalance: balance.inr_balance,
+        connected: pera.connected,
+        connecting: pera.connecting,
+        address: pera.address,
+        algoBalance,
+        inrBalance,
         network: "Algorand Testnet",
         portfolioValue,
         openPositions,
@@ -228,9 +195,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
         disconnect,
         placeTrade,
         claimMarketReward,
-        addFunds,
-        withdrawFunds,
-        refetchBalance,
+        refetchBalance: fetchBalance,
       }}
     >
       {children}

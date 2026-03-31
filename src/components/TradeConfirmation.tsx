@@ -7,18 +7,22 @@ interface Props {
   side: "YES" | "NO";
   amount: number;
   price: number;
+  txId?: string;
+  confirmedRound?: number;
   onClose: () => void;
 }
 
-const TradeConfirmation = ({ side, amount, price, onClose }: Props) => {
-  const [txHash] = useState(() => "TXID" + Math.random().toString(36).substring(2, 10).toUpperCase());
-  const [blockRound] = useState(() => Math.floor(40_000_000 + Math.random() * 1_000_000));
-  const [confirmed, setConfirmed] = useState(false);
+const TradeConfirmation = ({ side, amount, price, txId, confirmedRound, onClose }: Props) => {
+  const displayTxId = txId || "TXID" + Math.random().toString(36).substring(2, 10).toUpperCase();
+  const displayRound = confirmedRound || Math.floor(40_000_000 + Math.random() * 1_000_000);
+  const [confirmed, setConfirmed] = useState(!!txId);
 
   useEffect(() => {
-    const timer = setTimeout(() => setConfirmed(true), 1200);
-    return () => clearTimeout(timer);
-  }, []);
+    if (!txId) {
+      const timer = setTimeout(() => setConfirmed(true), 1200);
+      return () => clearTimeout(timer);
+    }
+  }, [txId]);
 
   const payout = (amount / price).toFixed(2);
 
@@ -69,14 +73,19 @@ const TradeConfirmation = ({ side, amount, price, onClose }: Props) => {
             <div className="rounded-lg bg-secondary/50 border border-border p-3 space-y-2">
               <div className="flex justify-between text-xs">
                 <span className="text-muted-foreground">Tx Hash</span>
-                <span className="font-mono text-primary text-[10px] flex items-center gap-1">
-                  {txHash}...
+                <a
+                  href={`https://testnet.explorer.perawallet.app/tx/${displayTxId}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-mono text-primary text-[10px] flex items-center gap-1 hover:underline"
+                >
+                  {displayTxId.slice(0, 12)}...
                   <ExternalLink className="w-2.5 h-2.5" />
-                </span>
+                </a>
               </div>
               <div className="flex justify-between text-xs">
                 <span className="text-muted-foreground">Block Round</span>
-                <span className="font-mono text-foreground text-[10px]">#{blockRound.toLocaleString()}</span>
+                <span className="font-mono text-foreground text-[10px]">#{displayRound.toLocaleString()}</span>
               </div>
               <div className="flex justify-between text-xs">
                 <span className="text-muted-foreground">Position</span>

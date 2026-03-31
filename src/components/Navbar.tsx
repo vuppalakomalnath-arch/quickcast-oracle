@@ -1,14 +1,14 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Wallet, Menu, X, CircleDot, Briefcase, ChevronDown, LogOut, Copy, ExternalLink, IndianRupee, ArrowRightLeft } from "lucide-react";
+import { Wallet, Menu, X, CircleDot, Briefcase, ChevronDown, LogOut, Copy, ExternalLink, IndianRupee, ArrowRightLeft, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useWallet } from "@/context/WalletContext";
 import { toast } from "sonner";
 import FundsModal from "@/components/FundsModal";
 
 const Navbar = () => {
-  const { connected, address, algoBalance, inrBalance, network, portfolioValue, openPositions, connect, disconnect } = useWallet();
+  const { connected, connecting, address, algoBalance, inrBalance, network, portfolioValue, openPositions, connect, disconnect } = useWallet();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [walletDropdown, setWalletDropdown] = useState(false);
   const [fundsOpen, setFundsOpen] = useState(false);
@@ -112,9 +112,13 @@ const Navbar = () => {
                   size="sm"
                   className="gradient-primary text-primary-foreground shadow-[var(--glow-primary)] hover:opacity-90 gap-2"
                 >
-                  <Wallet className="w-4 h-4" />
-                  <span className="hidden sm:inline">Connect Pera Wallet</span>
-                  <span className="sm:hidden">Connect</span>
+                  {connecting ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Wallet className="w-4 h-4" />
+                  )}
+                  <span className="hidden sm:inline">{connecting ? "Connecting..." : "Connect Pera Wallet"}</span>
+                  <span className="sm:hidden">{connecting ? "..." : "Connect"}</span>
                 </Button>
               )}
 
