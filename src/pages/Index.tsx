@@ -97,6 +97,7 @@ const Index = () => {
           </div>
         </div>
       </section>
+      <PracticePanel />
 
       {/* Why QuickCast */}
       <section className="pb-16 px-4">
