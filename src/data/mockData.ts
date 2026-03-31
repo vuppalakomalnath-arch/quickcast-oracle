@@ -37,6 +37,8 @@ export const initialMarkets: Market[] = [
     category: "Crypto",
     yesPrice: 0.50,
     noPrice: 0.50,
+    yesPool: 620,
+    noPool: 480,
     totalVolume: 284500,
     endTime: "2026-12-31T00:00:00Z",
     isLive: true,
