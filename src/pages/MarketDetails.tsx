@@ -10,8 +10,11 @@ import ClaimReward from "@/components/ClaimReward";
 import TradeConfirmation from "@/components/TradeConfirmation";
 import CountdownTimer from "@/components/CountdownTimer";
 import { initialMarkets } from "@/data/mockData";
+import { useWallet } from "@/context/WalletContext";
+import { toast } from "sonner";
 
 const MarketDetails = () => {
+  const { connected } = useWallet();
   const { id } = useParams<{ id: string }>();
   const baseMarket = initialMarkets.find(m => m.id === id);
 
@@ -31,6 +34,10 @@ const MarketDetails = () => {
   }
 
   const handleBuy = (side: "YES" | "NO") => {
+    if (!connected) {
+      toast.error("Connect your Pera Wallet to trade");
+      return;
+    }
     const stakeNum = parseFloat(stake) || 10;
     const delta = 0.02;
 
