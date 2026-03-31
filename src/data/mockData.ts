@@ -5,6 +5,8 @@ export interface Market {
   category: string;
   yesPrice: number;
   noPrice: number;
+  yesPool: number;
+  noPool: number;
   totalVolume: number;
   endTime: string;
   isLive: boolean;
