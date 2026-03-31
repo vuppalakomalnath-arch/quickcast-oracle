@@ -186,7 +186,20 @@ const MarketDetails = () => {
                     min="1"
                   />
                 </div>
-
+                <div className="grid grid-cols-3 gap-3 text-center">
+                    <div className="rounded-lg bg-secondary/50 border border-border p-3">
+                      <p className="text-[10px] text-muted-foreground mb-1">Wallet Balance</p>
+                      <p className="text-sm font-semibold text-foreground">{balance.toFixed(2)} ALGO</p>
+                    </div>
+                    <div className="rounded-lg bg-yes/10 border border-yes/20 p-3">
+                      <p className="text-[10px] text-muted-foreground mb-1">YES Pool</p>
+                      <p className="text-sm font-semibold text-yes">{yesPool.toFixed(2)} ALGO</p>
+                    </div>
+                    <div className="rounded-lg bg-no/10 border border-no/20 p-3">
+                      <p className="text-[10px] text-muted-foreground mb-1">NO Pool</p>
+                      <p className="text-sm font-semibold text-no">{noPool.toFixed(2)} ALGO</p>
+                    </div>
+                  </div>
                 <div className="grid grid-cols-2 gap-3">
                   <Button
                     onClick={() => handleBuy("YES")}
