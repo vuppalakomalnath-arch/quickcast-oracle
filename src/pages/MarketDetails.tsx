@@ -34,6 +34,10 @@ const MarketDetails = () => {
   }
 
   const handleBuy = (side: "YES" | "NO") => {
+    if (!connected) {
+      toast.error("Connect your Pera Wallet to trade");
+      return;
+    }
     const stakeNum = parseFloat(stake) || 10;
     const delta = 0.02;
 
