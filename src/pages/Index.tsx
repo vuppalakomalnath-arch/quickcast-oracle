@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import MarketCard from "@/components/MarketCard";
 import { initialMarkets } from "@/data/mockData";
 import Navbar from "@/components/Navbar";
+import PracticePanel from "@/components/PracticePanel";
 
 const features = [
   {
