@@ -42,11 +42,10 @@ const ClaimReward = ({
 
   const userWinningStake = useMemo(() => {
     if (!outcome) return 0;
-
     return bets
       .filter(
         (bet) =>
-          bet.marketId === marketId &&
+          bet.market_id === marketId &&
           bet.side === outcome &&
           !bet.claimed
       )
@@ -60,7 +59,6 @@ const ClaimReward = ({
     if (!resolved || !outcome || userWinningStake <= 0 || winningPool <= 0) {
       return 0;
     }
-
     return parseFloat(((userWinningStake / winningPool) * totalPool).toFixed(2));
   }, [resolved, outcome, userWinningStake, winningPool, totalPool]);
 
@@ -69,22 +67,18 @@ const ClaimReward = ({
       toast.error("Connect your Pera Wallet first");
       return;
     }
-
     if (!resolved) {
       toast.error("Market is not resolved yet");
       return;
     }
-
     if (userWinningStake <= 0) {
       toast.error("No winning position found for this market");
       return;
     }
-
     if (claimed) {
       toast.info("Reward already claimed");
       return;
     }
-
     setModalOpen(true);
   };
 
@@ -94,10 +88,7 @@ const ClaimReward = ({
     setConfirming(true);
     await new Promise((r) => setTimeout(r, 2200));
 
-    const hash =
-      "TXID" + Math.random().toString(36).substring(2, 10).toUpperCase() + "...ALGO";
-
-    claimMarketReward(marketId, outcome, reward);
+    const hash = await claimMarketReward(marketId, outcome, reward);
 
     setTxHash(hash);
     setConfirming(false);
