@@ -39,9 +39,9 @@ export const initialMarkets: Market[] = [
     endTime: "2025-07-01T00:00:00Z",
     isLive: true,
     oracleSources: [
-      { name: "Chainlink Price Feed", result: "PENDING", confidence: 95 },
-      { name: "Pyth Network", result: "PENDING", confidence: 92 },
-      { name: "API3 dAPI", result: "PENDING", confidence: 88 },
+      { name: "Chainlink Price Feed", result: "YES", confidence: 95 },
+      { name: "Pyth Network", result: "YES", confidence: 92 },
+      { name: "API3 dAPI", result: "NO", confidence: 88 },
     ],
     resolved: false,
   },
