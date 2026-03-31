@@ -36,31 +36,64 @@ const MarketDetails = () => {
   }
 
   const handleBuy = (side: "YES" | "NO") => {
-    if (!connected) {
-      toast.error("Connect your Pera Wallet to trade");
-      return;
-    }
-    const stakeNum = parseFloat(stake) || 10;
-    const delta = 0.02;
+  if (!connected) {
+    toast.error("Connect your Pera Wallet to trade");
+    return;
+  }
 
-    setYesPrice(prev => {
-      const next = side === "YES" ? prev + delta : prev - delta;
-      return Math.max(0.10, Math.min(0.90, parseFloat(next.toFixed(2))));
-    });
-    setNoPrice(prev => {
-      const next = side === "NO" ? prev + delta : prev - delta;
-      return Math.max(0.10, Math.min(0.90, parseFloat(next.toFixed(2))));
-    });
-    setVolume(prev => prev + stakeNum * 100);
-    setPriceHistory(prev => {
-      const lastYes = prev[prev.length - 1];
-      const newYes = side === "YES"
+  const stakeNum = parseFloat(stake) || 10;
+
+  if (stakeNum <= 0) {
+    toast.error("Enter a valid stake amount");
+    return;
+  }
+
+  if (stakeNum > balance) {
+    toast.error("Insufficient wallet balance");
+    return;
+  }
+
+  const tradePrice = side === "YES" ? yesPrice : noPrice;
+  const success = placeTrade(baseMarket.id, side, stakeNum, tradePrice);
+
+  if (!success) {
+    toast.error("Trade could not be placed");
+    return;
+  }
+
+  const delta = 0.02;
+
+  setYesPrice((prev) => {
+    const next = side === "YES" ? prev + delta : prev - delta;
+    return Math.max(0.10, Math.min(0.90, parseFloat(next.toFixed(2))));
+  });
+
+  setNoPrice((prev) => {
+    const next = side === "NO" ? prev + delta : prev - delta;
+    return Math.max(0.10, Math.min(0.90, parseFloat(next.toFixed(2))));
+  });
+
+  if (side === "YES") {
+    setYesPool((prev) => parseFloat((prev + stakeNum).toFixed(2)));
+  } else {
+    setNoPool((prev) => parseFloat((prev + stakeNum).toFixed(2)));
+  }
+
+  setVolume((prev) => prev + stakeNum * 100);
+
+  setPriceHistory((prev) => {
+    const lastYes = prev[prev.length - 1];
+    const newYes =
+      side === "YES"
         ? Math.min(0.90, lastYes + delta)
         : Math.max(0.10, lastYes - delta);
-      return [...prev, parseFloat(newYes.toFixed(2))];
-    });
-    setConfirmation({ side, price: side === "YES" ? yesPrice : noPrice });
-  };
+    return [...prev, parseFloat(newYes.toFixed(2))];
+  });
+
+  setConfirmation({ side, price: tradePrice });
+
+  toast.success(`${side} position placed successfully`);
+};
 
   return (
     <div className="min-h-screen">
