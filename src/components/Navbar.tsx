@@ -112,9 +112,13 @@ const Navbar = () => {
                   size="sm"
                   className="gradient-primary text-primary-foreground shadow-[var(--glow-primary)] hover:opacity-90 gap-2"
                 >
-                  <Wallet className="w-4 h-4" />
-                  <span className="hidden sm:inline">Connect Pera Wallet</span>
-                  <span className="sm:hidden">Connect</span>
+                  {connecting ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Wallet className="w-4 h-4" />
+                  )}
+                  <span className="hidden sm:inline">{connecting ? "Connecting..." : "Connect Pera Wallet"}</span>
+                  <span className="sm:hidden">{connecting ? "..." : "Connect"}</span>
                 </Button>
               )}
 
