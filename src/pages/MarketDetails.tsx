@@ -1,7 +1,7 @@
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, TrendingUp, TrendingDown, BarChart3 } from "lucide-react";
+import { ArrowLeft, TrendingUp, TrendingDown, BarChart3, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import Navbar from "@/components/Navbar";
@@ -9,25 +9,28 @@ import OraclePanel from "@/components/OraclePanel";
 import ClaimReward from "@/components/ClaimReward";
 import TradeConfirmation from "@/components/TradeConfirmation";
 import CountdownTimer from "@/components/CountdownTimer";
-import { initialMarkets } from "@/data/mockData";
+import { useSupabaseMarket } from "@/hooks/useSupabaseMarkets";
 import { useWallet } from "@/context/WalletContext";
 import { toast } from "sonner";
 
 const MarketDetails = () => {
-  const { connected, balance, placeTrade } = useWallet();
+  const { connected, algoBalance, placeTrade } = useWallet();
   const { id } = useParams<{ id: string }>();
-  const baseMarket = initialMarkets.find(m => m.id === id);
+  const { market, loading } = useSupabaseMarket(id);
 
-  const [yesPrice, setYesPrice] = useState(baseMarket?.yesPrice ?? 0.5);
-  const [noPrice, setNoPrice] = useState(baseMarket?.noPrice ?? 0.5);
-  const [yesPool, setYesPool] = useState(baseMarket?.yesPool ?? 0);
-  const [noPool, setNoPool] = useState(baseMarket?.noPool ?? 0);
-  const [volume, setVolume] = useState(baseMarket?.totalVolume ?? 0);
   const [stake, setStake] = useState("10");
   const [confirmation, setConfirmation] = useState<{ side: "YES" | "NO"; price: number } | null>(null);
-  const [priceHistory, setPriceHistory] = useState<number[]>([0.5]);
+  const [placing, setPlacing] = useState(false);
 
-  if (!baseMarket) {
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="w-6 h-6 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!market) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <p className="text-muted-foreground">Market not found</p>
@@ -35,65 +38,45 @@ const MarketDetails = () => {
     );
   }
 
-  const handleBuy = (side: "YES" | "NO") => {
-  if (!connected) {
-    toast.error("Connect your Pera Wallet to trade");
-    return;
-  }
+  const oracleSources = Array.isArray(market.oracle_sources) ? market.oracle_sources : [];
 
-  const stakeNum = parseFloat(stake) || 10;
+  const handleBuy = async (side: "YES" | "NO") => {
+    if (!connected) {
+      toast.error("Connect your Pera Wallet to trade");
+      return;
+    }
 
-  if (stakeNum <= 0) {
-    toast.error("Enter a valid stake amount");
-    return;
-  }
+    const stakeNum = parseFloat(stake) || 10;
 
-  if (stakeNum > balance) {
-    toast.error("Insufficient wallet balance");
-    return;
-  }
+    if (stakeNum <= 0) {
+      toast.error("Enter a valid stake amount");
+      return;
+    }
 
-  const tradePrice = side === "YES" ? yesPrice : noPrice;
-  const success = placeTrade(baseMarket.id, side, stakeNum, tradePrice);
+    if (stakeNum > algoBalance) {
+      toast.error("Insufficient wallet balance");
+      return;
+    }
 
-  if (!success) {
-    toast.error("Trade could not be placed");
-    return;
-  }
+    setPlacing(true);
+    const tradePrice = side === "YES" ? Number(market.yes_price) : Number(market.no_price);
+    const success = await placeTrade(market.id, side, stakeNum, tradePrice);
+    setPlacing(false);
 
-  const delta = 0.02;
+    if (!success) {
+      toast.error("Trade could not be placed");
+      return;
+    }
 
-  setYesPrice((prev) => {
-    const next = side === "YES" ? prev + delta : prev - delta;
-    return Math.max(0.10, Math.min(0.90, parseFloat(next.toFixed(2))));
-  });
+    setConfirmation({ side, price: tradePrice });
+    toast.success(`${side} position placed successfully`);
+  };
 
-  setNoPrice((prev) => {
-    const next = side === "NO" ? prev + delta : prev - delta;
-    return Math.max(0.10, Math.min(0.90, parseFloat(next.toFixed(2))));
-  });
-
-  if (side === "YES") {
-    setYesPool((prev) => parseFloat((prev + stakeNum).toFixed(2)));
-  } else {
-    setNoPool((prev) => parseFloat((prev + stakeNum).toFixed(2)));
-  }
-
-  setVolume((prev) => prev + stakeNum * 100);
-
-  setPriceHistory((prev) => {
-    const lastYes = prev[prev.length - 1];
-    const newYes =
-      side === "YES"
-        ? Math.min(0.90, lastYes + delta)
-        : Math.max(0.10, lastYes - delta);
-    return [...prev, parseFloat(newYes.toFixed(2))];
-  });
-
-  setConfirmation({ side, price: tradePrice });
-
-  toast.success(`${side} position placed successfully`);
-};
+  const yesPrice = Number(market.yes_price);
+  const noPrice = Number(market.no_price);
+  const yesPool = Number(market.yes_pool);
+  const noPool = Number(market.no_pool);
+  const volume = Number(market.total_volume);
 
   return (
     <div className="min-h-screen">
@@ -110,51 +93,35 @@ const MarketDetails = () => {
               <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="glass-card p-6 space-y-4">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="px-2 py-0.5 rounded text-[10px] uppercase tracking-wider bg-primary/10 text-primary border border-primary/20">
-                    {baseMarket.category}
+                    {market.category}
                   </span>
-                  <div className="flex items-center gap-1.5">
-                    <span className="relative flex h-2 w-2">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75" />
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-success" />
-                    </span>
-                    <span className="text-xs text-success font-medium">LIVE</span>
-                  </div>
+                  {market.is_live && (
+                    <div className="flex items-center gap-1.5">
+                      <span className="relative flex h-2 w-2">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75" />
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-success" />
+                      </span>
+                      <span className="text-xs text-success font-medium">LIVE</span>
+                    </div>
+                  )}
                 </div>
 
                 <h1 className="font-display font-bold text-2xl md:text-3xl text-foreground leading-tight">
-                  {baseMarket.title}
+                  {market.title}
                 </h1>
-                <p className="text-sm text-muted-foreground leading-relaxed">{baseMarket.description}</p>
+                <p className="text-sm text-muted-foreground leading-relaxed">{market.description}</p>
 
                 <div className="flex items-center gap-4 text-xs text-muted-foreground pt-2 border-t border-border">
                   <div className="flex items-center gap-1">
                     <BarChart3 className="w-3 h-3" />
                     <span>Vol: ${volume.toLocaleString()}</span>
                   </div>
-                  <CountdownTimer endTime={baseMarket.endTime} />
-                </div>
-              </motion.div>
-
-              {/* Price Chart Mini */}
-              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="glass-card p-5 space-y-3">
-                <h3 className="font-display font-semibold text-sm text-foreground">Price History</h3>
-                <div className="h-20 flex items-end gap-[2px]">
-                  {priceHistory.map((p, i) => (
-                    <div
-                      key={i}
-                      className="flex-1 rounded-t bg-primary/60 transition-all duration-300"
-                      style={{ height: `${p * 100}%` }}
-                    />
-                  ))}
-                </div>
-                <div className="flex justify-between text-[10px] text-muted-foreground">
-                  <span>Start</span>
-                  <span>Now</span>
+                  {market.end_time && <CountdownTimer endTime={market.end_time} />}
                 </div>
               </motion.div>
 
               {/* Trade Panel */}
-              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="glass-card p-6 space-y-5">
+              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="glass-card p-6 space-y-5">
                 <h3 className="font-display font-semibold text-foreground">Place Your Prediction</h3>
 
                 <div className="grid grid-cols-2 gap-4">
@@ -187,31 +154,33 @@ const MarketDetails = () => {
                   />
                 </div>
                 <div className="grid grid-cols-3 gap-3 text-center">
-                    <div className="rounded-lg bg-secondary/50 border border-border p-3">
-                      <p className="text-[10px] text-muted-foreground mb-1">Wallet Balance</p>
-                      <p className="text-sm font-semibold text-foreground">{balance.toFixed(2)} ALGO</p>
-                    </div>
-                    <div className="rounded-lg bg-yes/10 border border-yes/20 p-3">
-                      <p className="text-[10px] text-muted-foreground mb-1">YES Pool</p>
-                      <p className="text-sm font-semibold text-yes">{yesPool.toFixed(2)} ALGO</p>
-                    </div>
-                    <div className="rounded-lg bg-no/10 border border-no/20 p-3">
-                      <p className="text-[10px] text-muted-foreground mb-1">NO Pool</p>
-                      <p className="text-sm font-semibold text-no">{noPool.toFixed(2)} ALGO</p>
-                    </div>
+                  <div className="rounded-lg bg-secondary/50 border border-border p-3">
+                    <p className="text-[10px] text-muted-foreground mb-1">Wallet Balance</p>
+                    <p className="text-sm font-semibold text-foreground">{algoBalance.toFixed(2)} ALGO</p>
                   </div>
+                  <div className="rounded-lg bg-yes/10 border border-yes/20 p-3">
+                    <p className="text-[10px] text-muted-foreground mb-1">YES Pool</p>
+                    <p className="text-sm font-semibold text-yes">{yesPool.toFixed(2)} ALGO</p>
+                  </div>
+                  <div className="rounded-lg bg-no/10 border border-no/20 p-3">
+                    <p className="text-[10px] text-muted-foreground mb-1">NO Pool</p>
+                    <p className="text-sm font-semibold text-no">{noPool.toFixed(2)} ALGO</p>
+                  </div>
+                </div>
                 <div className="grid grid-cols-2 gap-3">
                   <Button
                     onClick={() => handleBuy("YES")}
+                    disabled={placing}
                     className="bg-yes text-yes-foreground hover:bg-yes/90 shadow-[var(--glow-yes)] font-semibold"
                   >
-                    Buy YES
+                    {placing ? <Loader2 className="w-4 h-4 animate-spin" /> : "Buy YES"}
                   </Button>
                   <Button
                     onClick={() => handleBuy("NO")}
+                    disabled={placing}
                     className="bg-no text-no-foreground hover:bg-no/90 shadow-[var(--glow-no)] font-semibold"
                   >
-                    Buy NO
+                    {placing ? <Loader2 className="w-4 h-4 animate-spin" /> : "Buy NO"}
                   </Button>
                 </div>
               </motion.div>
@@ -219,14 +188,14 @@ const MarketDetails = () => {
 
             {/* Sidebar */}
             <div className="space-y-6">
-              <OraclePanel sources={baseMarket.oracleSources} />
-              <ClaimReward resolved={baseMarket.resolved} outcome={baseMarket.resolvedOutcome}
-                marketId={baseMarket.id}
-                resolved={baseMarket.resolved}
-                outcome={baseMarket.resolvedOutcome}
+              <OraclePanel sources={oracleSources} />
+              <ClaimReward
+                marketId={market.id}
+                resolved={market.resolved}
+                outcome={market.resolved_outcome as "YES" | "NO" | undefined}
                 yesPool={yesPool}
                 noPool={noPool}
-                />
+              />
             </div>
           </div>
         </div>

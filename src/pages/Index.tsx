@@ -2,7 +2,7 @@ import { motion } from "framer-motion";
 import { ArrowRight, Zap, Shield, Eye, TrendingUp } from "lucide-react";
 import { Link } from "react-router-dom";
 import MarketCard from "@/components/MarketCard";
-import { initialMarkets } from "@/data/mockData";
+import { useSupabaseMarkets } from "@/hooks/useSupabaseMarkets";
 import Navbar from "@/components/Navbar";
 import PracticePanel from "@/components/PracticePanel";
 
@@ -25,6 +25,8 @@ const features = [
 ];
 
 const Index = () => {
+  const { markets, loading } = useSupabaseMarkets();
+
   return (
     <div className="min-h-screen">
       <Navbar />
@@ -88,10 +90,10 @@ const Index = () => {
         <div className="container mx-auto">
           <div className="flex items-center justify-between mb-6">
             <h2 className="font-display font-bold text-xl text-foreground">Live Markets</h2>
-            <span className="text-xs text-muted-foreground">{initialMarkets.length} active</span>
+            <span className="text-xs text-muted-foreground">{markets.length} active</span>
           </div>
           <div className="grid md:grid-cols-3 gap-4">
-            {initialMarkets.map((market, i) => (
+            {markets.map((market, i) => (
               <MarketCard key={market.id} market={market} index={i} />
             ))}
           </div>
