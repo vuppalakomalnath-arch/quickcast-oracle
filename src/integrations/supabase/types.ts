@@ -14,7 +14,203 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      bets: {
+        Row: {
+          amount: number
+          claimed: boolean
+          created_at: string
+          id: string
+          market_id: string
+          price: number
+          side: string
+          wallet_address: string
+        }
+        Insert: {
+          amount: number
+          claimed?: boolean
+          created_at?: string
+          id?: string
+          market_id: string
+          price: number
+          side: string
+          wallet_address: string
+        }
+        Update: {
+          amount?: number
+          claimed?: boolean
+          created_at?: string
+          id?: string
+          market_id?: string
+          price?: number
+          side?: string
+          wallet_address?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bets_market_id_fkey"
+            columns: ["market_id"]
+            isOneToOne: false
+            referencedRelation: "markets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bets_wallet_address_fkey"
+            columns: ["wallet_address"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["wallet_address"]
+          },
+        ]
+      }
+      claims: {
+        Row: {
+          created_at: string
+          id: string
+          market_id: string
+          reward_amount: number
+          tx_hash: string | null
+          wallet_address: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          market_id: string
+          reward_amount: number
+          tx_hash?: string | null
+          wallet_address: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          market_id?: string
+          reward_amount?: number
+          tx_hash?: string | null
+          wallet_address?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "claims_market_id_fkey"
+            columns: ["market_id"]
+            isOneToOne: false
+            referencedRelation: "markets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "claims_wallet_address_fkey"
+            columns: ["wallet_address"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["wallet_address"]
+          },
+        ]
+      }
+      demo_balances: {
+        Row: {
+          algo_balance: number
+          id: string
+          inr_balance: number
+          updated_at: string
+          wallet_address: string
+        }
+        Insert: {
+          algo_balance?: number
+          id?: string
+          inr_balance?: number
+          updated_at?: string
+          wallet_address: string
+        }
+        Update: {
+          algo_balance?: number
+          id?: string
+          inr_balance?: number
+          updated_at?: string
+          wallet_address?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "demo_balances_wallet_address_fkey"
+            columns: ["wallet_address"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["wallet_address"]
+          },
+        ]
+      }
+      markets: {
+        Row: {
+          category: string | null
+          created_at: string
+          description: string | null
+          end_time: string | null
+          id: string
+          is_live: boolean
+          no_pool: number
+          no_price: number
+          oracle_sources: Json | null
+          resolved: boolean
+          resolved_outcome: string | null
+          title: string
+          total_volume: number
+          yes_pool: number
+          yes_price: number
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          end_time?: string | null
+          id: string
+          is_live?: boolean
+          no_pool?: number
+          no_price?: number
+          oracle_sources?: Json | null
+          resolved?: boolean
+          resolved_outcome?: string | null
+          title: string
+          total_volume?: number
+          yes_pool?: number
+          yes_price?: number
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          end_time?: string | null
+          id?: string
+          is_live?: boolean
+          no_pool?: number
+          no_price?: number
+          oracle_sources?: Json | null
+          resolved?: boolean
+          resolved_outcome?: string | null
+          title?: string
+          total_volume?: number
+          yes_pool?: number
+          yes_price?: number
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          display_name: string | null
+          id: string
+          wallet_address: string
+        }
+        Insert: {
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          wallet_address: string
+        }
+        Update: {
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          wallet_address?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
