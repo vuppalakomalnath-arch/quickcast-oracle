@@ -5,6 +5,7 @@ import {
   CheckCircle2,
   Loader2,
   Shield,
+  ExternalLink,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -38,7 +39,8 @@ const ClaimReward = ({
   const [claimed, setClaimed] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [confirming, setConfirming] = useState(false);
-  const [txHash, setTxHash] = useState("");
+  const [txId, setTxId] = useState("");
+  const [confirmedRound, setConfirmedRound] = useState(0);
 
   const userWinningStake = useMemo(() => {
     if (!outcome) return 0;
@@ -86,19 +88,22 @@ const ClaimReward = ({
     if (!outcome) return;
 
     setConfirming(true);
-    await new Promise((r) => setTimeout(r, 2200));
 
-    const hash = await claimMarketReward(marketId, outcome, reward);
+    const result = await claimMarketReward(marketId, outcome, reward);
 
-    setTxHash(hash);
+    if (result) {
+      setTxId(result.txId);
+      setConfirmedRound(result.confirmedRound);
+      setClaimed(true);
+      setModalOpen(false);
+
+      toast.success("🎉 Transaction Confirmed on Algorand", {
+        description: `${reward.toFixed(2)} ALGO claimed · Round #${result.confirmedRound}`,
+        duration: 6000,
+      });
+    }
+
     setConfirming(false);
-    setClaimed(true);
-    setModalOpen(false);
-
-    toast.success("🎉 Transaction Confirmed on Algorand", {
-      description: `${reward.toFixed(2)} ALGO claimed · ${hash}`,
-      duration: 6000,
-    });
   };
 
   return (
@@ -173,10 +178,26 @@ const ClaimReward = ({
             <p className="text-sm text-muted-foreground">
               {reward.toFixed(2)} ALGO sent to your wallet
             </p>
-            {txHash && (
-              <div className="flex items-center justify-center gap-1.5 text-[10px] text-primary">
-                <CheckCircle2 className="w-3 h-3" />
-                <span className="font-mono">{txHash}</span>
+            {txId && (
+              <div className="space-y-1">
+                <div className="flex items-center justify-center gap-1.5 text-[10px] text-primary">
+                  <CheckCircle2 className="w-3 h-3" />
+                  <span className="font-mono">{txId.slice(0, 12)}...</span>
+                </div>
+                <a
+                  href={`https://testnet.explorer.perawallet.app/tx/${txId}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-[10px] text-primary hover:underline"
+                >
+                  <ExternalLink className="w-2.5 h-2.5" />
+                  View on Explorer
+                </a>
+                {confirmedRound > 0 && (
+                  <p className="text-[10px] text-muted-foreground">
+                    Confirmed at round #{confirmedRound.toLocaleString()}
+                  </p>
+                )}
               </div>
             )}
           </motion.div>
@@ -191,7 +212,7 @@ const ClaimReward = ({
               Confirm Claim on Algorand
             </DialogTitle>
             <DialogDescription>
-              Review the transaction details before confirming.
+              This will open Pera Wallet to sign the claim transaction.
             </DialogDescription>
           </DialogHeader>
 
@@ -226,7 +247,7 @@ const ClaimReward = ({
             <div className="rounded-lg bg-warning/5 border border-warning/20 p-3 flex items-start gap-2">
               <Shield className="w-4 h-4 text-warning mt-0.5 shrink-0" />
               <p className="text-[11px] text-warning/80">
-                This transaction is simulated for demo and updates wallet balance instantly.
+                You will be prompted to sign this transaction in your Pera Wallet.
               </p>
             </div>
           </div>
@@ -248,7 +269,7 @@ const ClaimReward = ({
               {confirming ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Confirming...
+                  Signing...
                 </>
               ) : (
                 "Sign & Confirm"

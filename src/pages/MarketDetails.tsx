@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, TrendingUp, TrendingDown, BarChart3, Loader2 } from "lucide-react";
+import { ArrowLeft, TrendingUp, TrendingDown, BarChart3, Loader2, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import Navbar from "@/components/Navbar";
@@ -19,7 +19,12 @@ const MarketDetails = () => {
   const { market, loading } = useSupabaseMarket(id);
 
   const [stake, setStake] = useState("10");
-  const [confirmation, setConfirmation] = useState<{ side: "YES" | "NO"; price: number } | null>(null);
+  const [confirmation, setConfirmation] = useState<{
+    side: "YES" | "NO";
+    price: number;
+    txId?: string;
+    confirmedRound?: number;
+  } | null>(null);
   const [placing, setPlacing] = useState(false);
 
   if (loading) {
@@ -60,16 +65,24 @@ const MarketDetails = () => {
 
     setPlacing(true);
     const tradePrice = side === "YES" ? Number(market.yes_price) : Number(market.no_price);
-    const success = await placeTrade(market.id, side, stakeNum, tradePrice);
+    const result = await placeTrade(market.id, side, stakeNum, tradePrice);
     setPlacing(false);
 
-    if (!success) {
-      toast.error("Trade could not be placed");
-      return;
+    if (!result) {
+      return; // error toast already shown by WalletContext
     }
 
-    setConfirmation({ side, price: tradePrice });
-    toast.success(`${side} position placed successfully`);
+    setConfirmation({
+      side,
+      price: tradePrice,
+      txId: result.txId,
+      confirmedRound: result.confirmedRound,
+    });
+
+    toast.success(`${side} position confirmed on Algorand`, {
+      description: `Tx: ${result.txId.slice(0, 12)}... · Round #${result.confirmedRound}`,
+      duration: 5000,
+    });
   };
 
   const yesPrice = Number(market.yes_price);
@@ -86,6 +99,14 @@ const MarketDetails = () => {
           <Link to="/" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-6 transition-colors">
             <ArrowLeft className="w-4 h-4" /> Back to Markets
           </Link>
+
+          {/* On-chain privacy warning */}
+          <div className="rounded-lg bg-warning/5 border border-warning/20 p-3 flex items-start gap-2 mb-6">
+            <AlertTriangle className="w-4 h-4 text-warning mt-0.5 shrink-0" />
+            <p className="text-[11px] text-warning/80">
+              All transactions are recorded on Algorand Testnet. Do not store sensitive personal information in transaction notes or on-chain state.
+            </p>
+          </div>
 
           <div className="grid lg:grid-cols-3 gap-6">
             {/* Main */}
@@ -155,8 +176,8 @@ const MarketDetails = () => {
                 </div>
                 <div className="grid grid-cols-3 gap-3 text-center">
                   <div className="rounded-lg bg-secondary/50 border border-border p-3">
-                    <p className="text-[10px] text-muted-foreground mb-1">Wallet Balance</p>
-                    <p className="text-sm font-semibold text-foreground">{algoBalance.toFixed(2)} ALGO</p>
+                    <p className="text-[10px] text-muted-foreground mb-1">On-Chain Balance</p>
+                    <p className="text-sm font-semibold text-foreground">{algoBalance.toFixed(4)} ALGO</p>
                   </div>
                   <div className="rounded-lg bg-yes/10 border border-yes/20 p-3">
                     <p className="text-[10px] text-muted-foreground mb-1">YES Pool</p>
@@ -207,6 +228,8 @@ const MarketDetails = () => {
             side={confirmation.side}
             amount={parseFloat(stake) || 10}
             price={confirmation.price}
+            txId={confirmation.txId}
+            confirmedRound={confirmation.confirmedRound}
             onClose={() => setConfirmation(null)}
           />
         )}
