@@ -30,7 +30,7 @@ export interface LeaderboardEntry {
 export const initialMarkets: Market[] = [
   {
     id: "btc-100k",
-    title: "Will BTC hit $120K before July 2025?",
+    title: "Will BTC hit $120K before June 2026?",
     description: "This market resolves YES if Bitcoin reaches or exceeds $120,000 USD on any major exchange (Binance, Coinbase, Kraken) before July 1, 2025 00:00 UTC. Price must be sustained for at least 1 minute on the order book.",
     category: "Crypto",
     yesPrice: 0.50,
