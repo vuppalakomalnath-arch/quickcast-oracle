@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import FundsModal from "@/components/FundsModal";
 
 const Navbar = () => {
-  const { connected, address, algoBalance, inrBalance, network, portfolioValue, openPositions, connect, disconnect } = useWallet();
+  const { connected, connecting, address, algoBalance, inrBalance, network, portfolioValue, openPositions, connect, disconnect } = useWallet();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [walletDropdown, setWalletDropdown] = useState(false);
   const [fundsOpen, setFundsOpen] = useState(false);
