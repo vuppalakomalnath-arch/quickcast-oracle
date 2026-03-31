@@ -1,9 +1,7 @@
 import algosdk from "algosdk";
 import { ALGORAND_CONFIG } from "./config";
 
-// Singleton Algod client for Algorand Testnet
 let algodClient: algosdk.Algodv2 | null = null;
-let indexerClient: algosdk.Indexer | null = null;
 
 export function getAlgodClient(): algosdk.Algodv2 {
   if (!algodClient) {
@@ -16,17 +14,6 @@ export function getAlgodClient(): algosdk.Algodv2 {
   return algodClient;
 }
 
-export function getIndexerClient(): algosdk.Indexer {
-  if (!indexerClient) {
-    indexerClient = new algosdk.Indexer(
-      ALGORAND_CONFIG.indexerToken,
-      ALGORAND_CONFIG.indexerServer,
-      ALGORAND_CONFIG.indexerPort
-    );
-  }
-  return indexerClient;
-}
-
 /**
  * Fetch on-chain ALGO balance for an address (in microAlgos → ALGO)
  */
@@ -34,7 +21,6 @@ export async function getAccountBalance(address: string): Promise<number> {
   try {
     const algod = getAlgodClient();
     const accountInfo = await algod.accountInformation(address).do();
-    // amount is in microAlgos
     return Number(accountInfo.amount) / 1e6;
   } catch (err) {
     console.error("Failed to fetch account balance:", err);
@@ -77,12 +63,12 @@ export async function readAppGlobalState(
     const globalState = appInfo.params?.globalState;
     if (globalState) {
       for (const kv of globalState) {
-        const key = Buffer.from(kv.key, "base64").toString();
+        const key = new TextDecoder().decode(
+          typeof kv.key === "string" ? Uint8Array.from(atob(kv.key), c => c.charCodeAt(0)) : kv.key
+        );
         if (kv.value.type === 1) {
-          // bytes
-          state.set(key, Buffer.from(kv.value.bytes, "base64"));
+          state.set(key, kv.value.bytes);
         } else {
-          // uint
           state.set(key, Number(kv.value.uint));
         }
       }
@@ -114,9 +100,11 @@ export async function readAppLocalState(
       const appLocal = appsLocal.find((a: any) => a.id === appId);
       if (appLocal?.keyValue) {
         for (const kv of appLocal.keyValue) {
-          const key = Buffer.from(kv.key, "base64").toString();
+          const key = new TextDecoder().decode(
+            typeof kv.key === "string" ? Uint8Array.from(atob(kv.key), c => c.charCodeAt(0)) : kv.key
+          );
           if (kv.value.type === 1) {
-            state.set(key, Buffer.from(kv.value.bytes, "base64"));
+            state.set(key, kv.value.bytes);
           } else {
             state.set(key, Number(kv.value.uint));
           }

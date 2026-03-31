@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { PeraWalletConnect } from "@perawallet/connect";
+import algosdk from "algosdk";
 
 const peraWallet = new PeraWalletConnect({
   chainId: 416002, // Algorand Testnet
@@ -11,7 +12,7 @@ export interface PeraWalletState {
   connecting: boolean;
   connect: () => Promise<string | null>;
   disconnect: () => void;
-  signTransactions: (txnGroups: Uint8Array[][]) => Promise<Uint8Array[]>;
+  signTransactions: (txns: algosdk.Transaction[]) => Promise<Uint8Array[]>;
 }
 
 export function usePeraWallet(): PeraWalletState {
@@ -20,7 +21,6 @@ export function usePeraWallet(): PeraWalletState {
   const [connecting, setConnecting] = useState(false);
   const reconnected = useRef(false);
 
-  // Auto-reconnect on page load
   useEffect(() => {
     if (reconnected.current) return;
     reconnected.current = true;
@@ -34,9 +34,7 @@ export function usePeraWallet(): PeraWalletState {
           peraWallet.connector?.on("disconnect", handleDisconnect);
         }
       })
-      .catch(() => {
-        // No previous session
-      });
+      .catch(() => {});
   }, []);
 
   const handleDisconnect = useCallback(() => {
@@ -56,7 +54,6 @@ export function usePeraWallet(): PeraWalletState {
       }
       return null;
     } catch (err: any) {
-      // User rejected or modal closed
       if (err?.data?.type !== "CONNECT_MODAL_CLOSED") {
         console.error("Pera Wallet connect error:", err);
       }
@@ -72,8 +69,10 @@ export function usePeraWallet(): PeraWalletState {
   }, [handleDisconnect]);
 
   const signTransactions = useCallback(
-    async (txnGroups: Uint8Array[][]): Promise<Uint8Array[]> => {
-      const signedTxns = await peraWallet.signTransaction(txnGroups);
+    async (txns: algosdk.Transaction[]): Promise<Uint8Array[]> => {
+      // Pera expects SignerTransaction format
+      const signerTxns = txns.map((txn) => ({ txn }));
+      const signedTxns = await peraWallet.signTransaction([signerTxns]);
       return signedTxns;
     },
     []
