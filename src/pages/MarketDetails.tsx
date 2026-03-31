@@ -172,7 +172,7 @@ const MarketDetails = () => {
             {/* Sidebar */}
             <div className="space-y-6">
               <OraclePanel sources={baseMarket.oracleSources} />
-              <ClaimReward />
+              <ClaimReward resolved={baseMarket.resolved} outcome={baseMarket.resolvedOutcome} />
             </div>
           </div>
         </div>
