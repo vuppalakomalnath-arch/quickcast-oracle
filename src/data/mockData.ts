@@ -57,6 +57,8 @@ export const initialMarkets: Market[] = [
     category: "DeFi",
     yesPrice: 0.50,
     noPrice: 0.50,
+    yesPool: 410,
+    noPool: 690,
     totalVolume: 156200,
     endTime: "2026-11-30T00:00:00Z",
     isLive: true,
