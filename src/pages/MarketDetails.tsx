@@ -10,6 +10,8 @@ import ClaimReward from "@/components/ClaimReward";
 import TradeConfirmation from "@/components/TradeConfirmation";
 import CountdownTimer from "@/components/CountdownTimer";
 import { initialMarkets } from "@/data/mockData";
+import { useWallet } from "@/context/WalletContext";
+import { toast } from "sonner";
 
 const MarketDetails = () => {
   const { id } = useParams<{ id: string }>();
