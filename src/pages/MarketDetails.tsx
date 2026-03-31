@@ -14,7 +14,7 @@ import { useWallet } from "@/context/WalletContext";
 import { toast } from "sonner";
 
 const MarketDetails = () => {
-  const { connected } = useWallet();
+  const { connected, balance, placeTrade } = useWallet();
   const { id } = useParams<{ id: string }>();
   const baseMarket = initialMarkets.find(m => m.id === id);
 
