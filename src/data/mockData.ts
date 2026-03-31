@@ -36,14 +36,15 @@ export const initialMarkets: Market[] = [
     yesPrice: 0.50,
     noPrice: 0.50,
     totalVolume: 284500,
-    endTime: "2025-07-01T00:00:00Z",
+    endTime: "2026-12-31T00:00:00Z",
     isLive: true,
     oracleSources: [
       { name: "Chainlink Price Feed", result: "YES", confidence: 95 },
       { name: "Pyth Network", result: "YES", confidence: 92 },
       { name: "API3 dAPI", result: "NO", confidence: 88 },
     ],
-    resolved: false,
+    resolved: true,
+    resolvedOutcome: "YES",
   },
   {
     id: "eth-etf",
@@ -53,14 +54,15 @@ export const initialMarkets: Market[] = [
     yesPrice: 0.50,
     noPrice: 0.50,
     totalVolume: 156200,
-    endTime: "2025-09-30T00:00:00Z",
+    endTime: "2026-11-30T00:00:00Z",
     isLive: true,
     oracleSources: [
       { name: "Bloomberg Terminal", result: "NO", confidence: 97 },
       { name: "SEC EDGAR Filing", result: "NO", confidence: 90 },
       { name: "CoinGlass Analytics", result: "NO", confidence: 85 },
     ],
-    resolved: false,
+    resolved: true,
+    resolvedOutcome: "YES",
   },
   {
     id: "algo-governance",
@@ -70,14 +72,15 @@ export const initialMarkets: Market[] = [
     yesPrice: 0.50,
     noPrice: 0.50,
     totalVolume: 98750,
-    endTime: "2025-12-31T00:00:00Z",
+    endTime: "2026-10-30T00:00:00Z",
     isLive: true,
     oracleSources: [
       { name: "DeFiLlama API", result: "YES", confidence: 93 },
       { name: "Algorand Indexer", result: "YES", confidence: 91 },
       { name: "Vestige Analytics", result: "YES", confidence: 87 },
     ],
-    resolved: false,
+    resolved: true,
+    resolvedOutcome: "YES",
   },
 ];
 
