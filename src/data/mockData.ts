@@ -77,6 +77,8 @@ export const initialMarkets: Market[] = [
     category: "Algorand",
     yesPrice: 0.50,
     noPrice: 0.50,
+    yesPool: 730,
+    noPool: 370,
     totalVolume: 98750,
     endTime: "2026-10-30T00:00:00Z",
     isLive: true,
